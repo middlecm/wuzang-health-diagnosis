@@ -144,62 +144,61 @@
       pointer-events: none;
       position: absolute;
       inset: 0;
-      opacity: 0;
-      transition: opacity .25s ease;
+      z-index: 4;
+      display: none;
       font-family: inherit;
     }
 
     .cameraBox.detecting .faceLayer,
-    .cameraBox.scanning .faceLayer { opacity: 1; }
+    .cameraBox.scanning .faceLayer { display: block; }
 
-    .detectBox {
+    .faceMark {
       position: absolute;
-      border: 2px solid rgba(255, 221, 91, .95);
-      box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 0 18px rgba(255,221,91,.42);
-      color: #ffe58a;
-      font-size: 12px;
-      letter-spacing: .12em;
+      display: none;
+      border: 2px solid rgba(255, 219, 77, .98);
+      color: #ffe88a;
+      text-shadow: 0 1px 3px black;
+      filter: drop-shadow(0 0 8px rgba(255,219,77,.42));
     }
 
-    .detectBox::before {
+    .faceMark::before {
       content: attr(data-label);
       position: absolute;
       left: -2px;
-      top: -23px;
+      top: -24px;
       background: rgba(0,0,0,.78);
-      border: 1px solid rgba(255,221,91,.8);
-      padding: 2px 5px;
+      border: 1px solid rgba(255,219,77,.9);
+      padding: 2px 6px;
+      font-size: 12px;
+      line-height: 1.2;
+      letter-spacing: .12em;
       white-space: nowrap;
-      text-shadow: 0 1px 2px black;
     }
 
-    .faceMain { left: 30%; top: 13%; width: 40%; height: 58%; border-radius: 46% 46% 42% 42%; }
-    .eyeL { left: 39%; top: 34%; width: 8%; height: 5%; border-radius: 999px; }
-    .eyeR { left: 53%; top: 34%; width: 8%; height: 5%; border-radius: 999px; }
-    .nose { left: 48%; top: 42%; width: 5%; height: 12%; border-radius: 40%; }
-    .mouth { left: 44%; top: 58%; width: 13%; height: 5%; border-radius: 999px; }
-    .skinScan { left: 33%; top: 20%; width: 34%; height: 45%; border-style: dashed; opacity: .7; }
+    .faceMain { border-radius: 44% 44% 48% 48%; border-width: 2px; }
+    .facePoint { border-radius: 999px; }
+    .faceSkin { border-style: dashed; opacity: .72; }
 
     .adSlot {
       margin-top: 14px;
       border: 2px solid var(--line);
       background: #071957;
-      color: #f6f1df;
-      overflow: hidden;
       position: relative;
+      overflow: hidden;
     }
 
     .adSlot::before {
-      content: "五臟廟角落廣告位";
+      content: "Ad";
       position: absolute;
       top: 8px;
       left: 8px;
       z-index: 2;
-      background: rgba(0,0,0,.68);
-      border: 1px solid rgba(255,255,255,.45);
-      padding: 3px 7px;
+      background: rgba(0,0,0,.72);
+      color: white;
+      border: 1px solid rgba(255,255,255,.55);
+      padding: 2px 8px;
       font-size: 12px;
-      letter-spacing: .1em;
+      letter-spacing: .12em;
     }
 
     .adSlot img {
@@ -376,13 +375,13 @@
         <img id="photoPreview" class="photoPreview hidden" alt="拍攝結果" />
         <canvas id="canvas"></canvas>
         <div class="scanOverlay"></div>
-        <div class="faceLayer" aria-hidden="true">
-          <div class="detectBox faceMain" data-label="面相輪廓"></div>
-          <div class="detectBox eyeL" data-label="左眼：香火反射"></div>
-          <div class="detectBox eyeR" data-label="右眼：螢幕殘影"></div>
-          <div class="detectBox nose" data-label="鼻息流量"></div>
-          <div class="detectBox mouth" data-label="口德入口"></div>
-          <div class="detectBox skinScan" data-label="皮膚歲月層"></div>
+        <div class="faceLayer" id="faceLayer" aria-hidden="true">
+          <div class="faceMark faceMain" id="markFace" data-label="面相輪廓"></div>
+          <div class="faceMark facePoint" id="markLeftEye" data-label="左眼"></div>
+          <div class="faceMark facePoint" id="markRightEye" data-label="右眼"></div>
+          <div class="faceMark facePoint" id="markNose" data-label="鼻息"></div>
+          <div class="faceMark facePoint" id="markMouth" data-label="口德"></div>
+          <div class="faceMark faceSkin" id="markSkin" data-label="皮膚歲月層"></div>
         </div>
         <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
         <div id="status" class="status">請開啟鏡頭，將信徒面相置於神位中央。</div>
@@ -396,8 +395,8 @@
         <button id="printBtn" class="secondary">列印小票</button>
       </div>
 
-      <aside class="adSlot" aria-label="五臟廟角落廣告位">
-        <img src="ad.png" alt="角落廣告" />
+      <aside class="adSlot" aria-label="Ad">
+        <img src="ad.png" alt="Ad" />
       </aside>
     </section>
 
@@ -420,10 +419,11 @@
 
       <div id="grade" class="grade">未開籤</div>
       <div class="barcode"></div>
-      <p class="fineprint">本小票由五臟廟香火資料庫擲筊生成，僅作廟務參拜紀錄。</p>
+      <p class="fineprint">本小票由五臟廟香火資料庫擲筊生成。請勿與真實醫療院所、保險、政府文件混用。</p>
     </aside>
   </main>
 
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
 
@@ -442,6 +442,24 @@
     let stream = null;
     let lastResult = null;
 
+    const faceLayer = $("faceLayer");
+    const marks = {
+      face: $("markFace"),
+      leftEye: $("markLeftEye"),
+      rightEye: $("markRightEye"),
+      nose: $("markNose"),
+      mouth: $("markMouth"),
+      skin: $("markSkin")
+    };
+
+    let nativeFaceDetector = null;
+    let mpFaceDetection = null;
+    let detectionMode = "none";
+    let tracking = false;
+    let trackingBusy = false;
+    let lastDetectionAt = 0;
+
+
     const personas = [
       "熬夜修士", "過勞上班族", "憂鬱美少女", "青春餘額不足者", "螢幕供養者",
       "即將成仙研究生", "睡眠逃逸犯", "電子功德捐獻者", "胃神眷顧者", "肝膽相照之人",
@@ -449,7 +467,8 @@
       "香火不足上班族", "焦慮型仙女", "功德透支少年", "臉色微妙大人", "笑容營業中人士",
       "保健品觀望者", "肝指數吟遊詩人", "靈魂下班失敗者", "睡眠破產戶", "眼壓小富翁",
       "壓力型漂亮寶貝", "胃口很有前途的人", "腦霧雲端用戶", "元氣試用版信徒", "週一倖存者",
-      "神明看了會嘆氣的人", "臨時抱佛腳美少女", "早餐失蹤人口", "手機亮度供奉者", "冷氣房乾燥靈"
+      "神明看了會嘆氣的人", "臨時抱佛腳美少女", "早餐失蹤人口", "手機亮度供奉者", "冷氣房乾燥靈",
+      "自律破洞者", "笑容含糖者", "熬夜型策展人", "心事寄放處", "人間試營運版本"
     ];
 
     const grades = [
@@ -462,9 +481,10 @@
         ["記憶葉局部起霧", "常忘記打開冰箱的原始任務。", "供奉八小時睡眠與一段無通知時光。"],
         ["注意力神龕位移", "容易在三個分頁之間輪迴。", "建議每日供上二十分鐘單一任務。"],
         ["想像皮質過度發光", "靈感很多，執行像被香灰覆蓋。", "宜添行事曆，不宜只添願望。"],
+        ["前額葉香灰堆積", "知道該睡，卻繼續巡視網路邊疆。", "建議上香給自制力，並關機。"],
         ["決策神經打結", "小事考慮三天，大事全靠衝動。", "供奉十五分鐘沉默與一張待辦清單。"],
         ["腦內廟會過盛", "明明很累，腦中仍有八個攤販叫賣。", "宜暫停通知，讓神明散場。"],
-        ["前額葉香灰堆積", "知道該睡，卻繼續巡視網路邊疆。", "建議上香給自制力，並關機。"]
+        ["靈感庫存過期", "想法很多，但保存期限只到今天凌晨。", "宜立刻記下，不宜相信明天的自己。"]
       ],
       "心": [
         ["情感瓣膜偏厚", "已讀不回後會自行建廟。", "供奉直接溝通，少量自尊。"],
@@ -537,6 +557,134 @@
       return grades.find(([, min]) => score >= min)[0];
     }
 
+
+
+    function showMark(el, x, y, w, h) {
+      el.style.display = "block";
+      el.style.left = `${x}px`;
+      el.style.top = `${y}px`;
+      el.style.width = `${w}px`;
+      el.style.height = `${h}px`;
+    }
+
+    function hideFaceMarks() {
+      Object.values(marks).forEach(el => el.style.display = "none");
+    }
+
+    function videoToBox(x, y, w, h) {
+      const cw = cameraBox.clientWidth;
+      const ch = cameraBox.clientHeight;
+      const vw = video.videoWidth || cw;
+      const vh = video.videoHeight || ch;
+      const scale = Math.max(cw / vw, ch / vh);
+      const renderedW = vw * scale;
+      const renderedH = vh * scale;
+      const offsetX = (cw - renderedW) / 2;
+      const offsetY = (ch - renderedH) / 2;
+      return {
+        x: offsetX + x * renderedW,
+        y: offsetY + y * renderedH,
+        w: w * renderedW,
+        h: h * renderedH
+      };
+    }
+
+    function updateFaceOverlay(box) {
+      const b = videoToBox(box.x, box.y, box.w, box.h);
+      const padX = b.w * .08;
+      const padY = b.h * .08;
+      const fx = b.x - padX;
+      const fy = b.y - padY;
+      const fw = b.w + padX * 2;
+      const fh = b.h + padY * 2;
+
+      showMark(marks.face, fx, fy, fw, fh);
+      showMark(marks.leftEye, fx + fw * .26, fy + fh * .35, fw * .18, fh * .075);
+      showMark(marks.rightEye, fx + fw * .56, fy + fh * .35, fw * .18, fh * .075);
+      showMark(marks.nose, fx + fw * .46, fy + fh * .45, fw * .09, fh * .17);
+      showMark(marks.mouth, fx + fw * .38, fy + fh * .68, fw * .25, fh * .08);
+      showMark(marks.skin, fx + fw * .14, fy + fh * .18, fw * .72, fh * .62);
+      lastDetectionAt = Date.now();
+    }
+
+    async function initFaceTracking() {
+      if (detectionMode !== "none") return;
+
+      if ("FaceDetector" in window) {
+        try {
+          nativeFaceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+          detectionMode = "native";
+          return;
+        } catch (err) {}
+      }
+
+      if (window.FaceDetection) {
+        try {
+          mpFaceDetection = new FaceDetection({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
+          });
+          mpFaceDetection.setOptions({ model: "short", minDetectionConfidence: .55 });
+          mpFaceDetection.onResults((results) => {
+            const detection = results?.detections?.[0];
+            const box = detection?.locationData?.relativeBoundingBox;
+            if (!box) return;
+            updateFaceOverlay({
+              x: box.xMin,
+              y: box.yMin,
+              w: box.width,
+              h: box.height
+            });
+          });
+          detectionMode = "mediapipe";
+          return;
+        } catch (err) {}
+      }
+
+      detectionMode = "unsupported";
+    }
+
+    async function trackFaceLoop() {
+      if (!tracking) return;
+      if (!trackingBusy && video.readyState >= 2 && video.videoWidth) {
+        trackingBusy = true;
+        try {
+          if (detectionMode === "native" && nativeFaceDetector) {
+            const faces = await nativeFaceDetector.detect(video);
+            if (faces && faces[0]?.boundingBox) {
+              const box = faces[0].boundingBox;
+              updateFaceOverlay({
+                x: box.x / video.videoWidth,
+                y: box.y / video.videoHeight,
+                w: box.width / video.videoWidth,
+                h: box.height / video.videoHeight
+              });
+            }
+          } else if (detectionMode === "mediapipe" && mpFaceDetection) {
+            await mpFaceDetection.send({ image: video });
+          }
+        } catch (err) {
+          // Keep the kiosk alive even if one frame fails.
+        } finally {
+          trackingBusy = false;
+        }
+      }
+
+      if (Date.now() - lastDetectionAt > 1200) hideFaceMarks();
+      setTimeout(() => requestAnimationFrame(trackFaceLoop), 90);
+    }
+
+    async function startFaceTracking() {
+      await initFaceTracking();
+      cameraBox.classList.add("detecting");
+      tracking = true;
+      lastDetectionAt = Date.now();
+      if (detectionMode === "unsupported") {
+        statusEl.textContent = "鏡頭已開，但此瀏覽器未載入即時面相偵測。仍可拍照抽籤。";
+        return;
+      }
+      requestAnimationFrame(trackFaceLoop);
+    }
+
     async function startCamera() {
       try {
         stream = await navigator.mediaDevices.getUserMedia({
@@ -546,8 +694,8 @@
         video.srcObject = stream;
         photoPreview.classList.add("hidden");
         captureBtn.disabled = false;
-        cameraBox.classList.add("detecting");
-        statusEl.textContent = "鏡頭已開。偵測框已降臨，請把臉放進四角神位內。";
+        statusEl.textContent = "鏡頭已開。即時面相框正在尋找信徒五官。";
+        startFaceTracking();
       } catch (err) {
         statusEl.textContent = "鏡頭無法開啟：請確認使用 HTTPS、localhost，並允許瀏覽器相機權限。";
       }
