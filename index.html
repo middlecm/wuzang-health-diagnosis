@@ -154,7 +154,7 @@
 
     .faceMark {
       position: absolute;
-      display: none;
+      display: block;
       border: 2px solid rgba(255, 219, 77, .98);
       color: #ffe88a;
       text-shadow: 0 1px 3px black;
@@ -175,16 +175,24 @@
       white-space: nowrap;
     }
 
-    .faceMain { border-radius: 44% 44% 48% 48%; border-width: 2px; }
+    .faceMain { left: 30%; top: 13%; width: 40%; height: 58%; border-radius: 44% 44% 48% 48%; border-width: 2px; }
     .facePoint { border-radius: 999px; }
-    .faceSkin { border-style: dashed; opacity: .72; }
+    #markLeftEye { left: 39%; top: 34%; width: 8%; height: 5%; }
+    #markRightEye { left: 53%; top: 34%; width: 8%; height: 5%; }
+    #markNose { left: 48%; top: 42%; width: 5%; height: 13%; }
+    #markMouth { left: 43.5%; top: 59%; width: 13%; height: 5%; }
+    .faceSkin { left: 33%; top: 20%; width: 34%; height: 45%; border-style: dashed; opacity: .72; }
 
     .adSlot {
-      margin-top: 14px;
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      z-index: 20;
+      width: min(360px, calc(100vw - 36px));
       border: 2px solid var(--line);
       background: #071957;
-      position: relative;
       overflow: hidden;
+      box-shadow: 0 12px 36px rgba(0,0,0,.45);
     }
 
     .adSlot::before {
@@ -204,7 +212,7 @@
     .adSlot img {
       display: block;
       width: 100%;
-      max-height: 190px;
+      max-height: 150px;
       object-fit: cover;
       object-position: center;
     }
@@ -349,6 +357,8 @@
       .app { grid-template-columns: 1fr; }
       .receipt { position: static; }
       .cameraBox { min-height: 56vh; }
+      .adSlot { position: static; width: 100%; margin-top: 14px; box-shadow: none; }
+      .adSlot img { max-height: 190px; }
     }
 
     @media print {
@@ -376,11 +386,11 @@
         <canvas id="canvas"></canvas>
         <div class="scanOverlay"></div>
         <div class="faceLayer" id="faceLayer" aria-hidden="true">
-          <div class="faceMark faceMain" id="markFace" data-label="面相輪廓"></div>
-          <div class="faceMark facePoint" id="markLeftEye" data-label="左眼"></div>
-          <div class="faceMark facePoint" id="markRightEye" data-label="右眼"></div>
-          <div class="faceMark facePoint" id="markNose" data-label="鼻息"></div>
-          <div class="faceMark facePoint" id="markMouth" data-label="口德"></div>
+          <div class="faceMark faceMain" id="markFace" data-label="臉部神位"></div>
+          <div class="faceMark facePoint" id="markLeftEye" data-label="左眼定位"></div>
+          <div class="faceMark facePoint" id="markRightEye" data-label="右眼定位"></div>
+          <div class="faceMark facePoint" id="markNose" data-label="鼻息中線"></div>
+          <div class="faceMark facePoint" id="markMouth" data-label="口德定位"></div>
           <div class="faceMark faceSkin" id="markSkin" data-label="皮膚歲月層"></div>
         </div>
         <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
@@ -406,16 +416,16 @@
         <small>TOAS-05 / 信徒身體巡禮小票</small>
       </div>
 
-      <div class="row"><b>診斷編號</b><span id="serial">尚未降籤</span></div>
+      <div class="row"><b>診斷編號</b><span id="serial">尚未抽籤</span></div>
       <div class="row"><b>診斷時間</b><span id="time">--</span></div>
-      <div class="row"><b>結果名稱</b><span id="persona">等待面相</span></div>
+      <div class="row"><b>結果名稱</b><span id="persona">--</span></div>
       <div class="row"><b>視覺年齡</b><span id="visualAge">--</span></div>
       <div class="row"><b>器官完整度</b><span id="integrity">--</span></div>
       <div class="row"><b>香火旺盛度</b><span id="incense">--</span></div>
       <div class="row"><b>功德餘額</b><span id="merit">--</span></div>
 
       <div class="sectionTitle">臨床摘要</div>
-      <div id="organs"></div>
+      <div id="organs" class="placeholder">請先拍照掃描，籤落後顯示。</div>
 
       <div id="grade" class="grade">未開籤</div>
       <div class="barcode"></div>
@@ -423,7 +433,6 @@
     </aside>
   </main>
 
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/face_detection.js"></script>
   <script>
     const $ = (id) => document.getElementById(id);
 
@@ -559,130 +568,9 @@
 
 
 
-    function showMark(el, x, y, w, h) {
-      el.style.display = "block";
-      el.style.left = `${x}px`;
-      el.style.top = `${y}px`;
-      el.style.width = `${w}px`;
-      el.style.height = `${h}px`;
-    }
-
-    function hideFaceMarks() {
-      Object.values(marks).forEach(el => el.style.display = "none");
-    }
-
-    function videoToBox(x, y, w, h) {
-      const cw = cameraBox.clientWidth;
-      const ch = cameraBox.clientHeight;
-      const vw = video.videoWidth || cw;
-      const vh = video.videoHeight || ch;
-      const scale = Math.max(cw / vw, ch / vh);
-      const renderedW = vw * scale;
-      const renderedH = vh * scale;
-      const offsetX = (cw - renderedW) / 2;
-      const offsetY = (ch - renderedH) / 2;
-      return {
-        x: offsetX + x * renderedW,
-        y: offsetY + y * renderedH,
-        w: w * renderedW,
-        h: h * renderedH
-      };
-    }
-
-    function updateFaceOverlay(box) {
-      const b = videoToBox(box.x, box.y, box.w, box.h);
-      const padX = b.w * .08;
-      const padY = b.h * .08;
-      const fx = b.x - padX;
-      const fy = b.y - padY;
-      const fw = b.w + padX * 2;
-      const fh = b.h + padY * 2;
-
-      showMark(marks.face, fx, fy, fw, fh);
-      showMark(marks.leftEye, fx + fw * .26, fy + fh * .35, fw * .18, fh * .075);
-      showMark(marks.rightEye, fx + fw * .56, fy + fh * .35, fw * .18, fh * .075);
-      showMark(marks.nose, fx + fw * .46, fy + fh * .45, fw * .09, fh * .17);
-      showMark(marks.mouth, fx + fw * .38, fy + fh * .68, fw * .25, fh * .08);
-      showMark(marks.skin, fx + fw * .14, fy + fh * .18, fw * .72, fh * .62);
-      lastDetectionAt = Date.now();
-    }
-
-    async function initFaceTracking() {
-      if (detectionMode !== "none") return;
-
-      if ("FaceDetector" in window) {
-        try {
-          nativeFaceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
-          detectionMode = "native";
-          return;
-        } catch (err) {}
-      }
-
-      if (window.FaceDetection) {
-        try {
-          mpFaceDetection = new FaceDetection({
-            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_detection/${file}`
-          });
-          mpFaceDetection.setOptions({ model: "short", minDetectionConfidence: .55 });
-          mpFaceDetection.onResults((results) => {
-            const detection = results?.detections?.[0];
-            const box = detection?.locationData?.relativeBoundingBox;
-            if (!box) return;
-            updateFaceOverlay({
-              x: box.xMin,
-              y: box.yMin,
-              w: box.width,
-              h: box.height
-            });
-          });
-          detectionMode = "mediapipe";
-          return;
-        } catch (err) {}
-      }
-
-      detectionMode = "unsupported";
-    }
-
-    async function trackFaceLoop() {
-      if (!tracking) return;
-      if (!trackingBusy && video.readyState >= 2 && video.videoWidth) {
-        trackingBusy = true;
-        try {
-          if (detectionMode === "native" && nativeFaceDetector) {
-            const faces = await nativeFaceDetector.detect(video);
-            if (faces && faces[0]?.boundingBox) {
-              const box = faces[0].boundingBox;
-              updateFaceOverlay({
-                x: box.x / video.videoWidth,
-                y: box.y / video.videoHeight,
-                w: box.width / video.videoWidth,
-                h: box.height / video.videoHeight
-              });
-            }
-          } else if (detectionMode === "mediapipe" && mpFaceDetection) {
-            await mpFaceDetection.send({ image: video });
-          }
-        } catch (err) {
-          // Keep the kiosk alive even if one frame fails.
-        } finally {
-          trackingBusy = false;
-        }
-      }
-
-      if (Date.now() - lastDetectionAt > 1200) hideFaceMarks();
-      setTimeout(() => requestAnimationFrame(trackFaceLoop), 90);
-    }
-
-    async function startFaceTracking() {
-      await initFaceTracking();
+    function startGuideOverlay() {
       cameraBox.classList.add("detecting");
-      tracking = true;
-      lastDetectionAt = Date.now();
-      if (detectionMode === "unsupported") {
-        statusEl.textContent = "鏡頭已開，但此瀏覽器未載入即時面相偵測。仍可拍照抽籤。";
-        return;
-      }
-      requestAnimationFrame(trackFaceLoop);
+      statusEl.textContent = "鏡頭已開。請將眼睛、鼻息、口德對準金色輔助線。";
     }
 
     async function startCamera() {
@@ -694,8 +582,7 @@
         video.srcObject = stream;
         photoPreview.classList.add("hidden");
         captureBtn.disabled = false;
-        statusEl.textContent = "鏡頭已開。即時面相框正在尋找信徒五官。";
-        startFaceTracking();
+        startGuideOverlay();
       } catch (err) {
         statusEl.textContent = "鏡頭無法開啟：請確認使用 HTTPS、localhost，並允許瀏覽器相機權限。";
       }
@@ -771,7 +658,8 @@
     }
 
     function resultToText() {
-      const r = lastResult || generateResult();
+      if (!lastResult) return "五臟廟健康診斷：尚未抽籤。";
+      const r = lastResult;
       return [
         "五臟廟健康診斷",
         `診斷編號：${r.serial}`,
@@ -807,7 +695,6 @@
       }
     });
 
-    renderResult(generateResult());
   </script>
 </body>
 </html>
