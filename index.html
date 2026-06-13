@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>五臟廟健康診斷系統</title>
+  <style>
+    :root {
+      --paper: #f6f1df;
+      --ink: #15130e;
+      --muted: #6a6255;
+      --line: #2b261c;
+      --red: #9e1f1f;
+      --gold: #b1842f;
+      --bg: #16120c;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top left, rgba(177,132,47,.28), transparent 30%),
+        radial-gradient(circle at bottom right, rgba(158,31,31,.22), transparent 32%),
+        var(--bg);
+      color: var(--ink);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Noto Sans TC", monospace;
+    }
+
+    body { padding: 18px; }
+
+    .app {
+      width: min(1120px, 100%);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 420px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .panel, .receipt {
+      background: var(--paper);
+      border: 2px solid var(--line);
+      box-shadow: 0 16px 50px rgba(0,0,0,.35);
+    }
+
+    .panel { padding: 16px; }
+
+    h1, h2, h3, p { margin: 0; }
+
+    .masthead {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 2px solid var(--line);
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+
+    .title h1 {
+      font-size: clamp(26px, 4vw, 48px);
+      letter-spacing: .08em;
+      line-height: 1;
+    }
+
+    .title p {
+      margin-top: 8px;
+      color: var(--muted);
+      font-size: 13px;
+      letter-spacing: .08em;
+    }
+
+    .seal {
+      width: 72px;
+      height: 72px;
+      border: 4px double var(--red);
+      color: var(--red);
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      font-weight: 900;
+      transform: rotate(6deg);
+      flex: 0 0 auto;
+      text-align: center;
+      line-height: 1.05;
+    }
+
+    .cameraBox {
+      position: relative;
+      overflow: hidden;
+      border: 2px solid var(--line);
+      background: #070604;
+      min-height: 520px;
+      display: grid;
+      place-items: center;
+    }
+
+    video, canvas, .photoPreview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    canvas { display: none; }
+
+    .photoPreview { position: absolute; inset: 0; }
+
+    .scanOverlay {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      display: none;
+      background:
+        linear-gradient(transparent 0 48%, rgba(159, 31, 31, .75) 50%, transparent 52%),
+        repeating-linear-gradient(0deg, rgba(246,241,223,.05), rgba(246,241,223,.05) 1px, transparent 1px, transparent 7px);
+      animation: scan 1.15s linear infinite;
+      mix-blend-mode: screen;
+    }
+
+    .cameraBox.scanning .scanOverlay { display: block; }
+
+    @keyframes scan {
+      0% { transform: translateY(-45%); }
+      100% { transform: translateY(45%); }
+    }
+
+    .corner {
+      position: absolute;
+      width: 42px;
+      height: 42px;
+      border-color: var(--gold);
+      border-style: solid;
+    }
+    .tl { top: 20px; left: 20px; border-width: 4px 0 0 4px; }
+    .tr { top: 20px; right: 20px; border-width: 4px 4px 0 0; }
+    .bl { bottom: 20px; left: 20px; border-width: 0 0 4px 4px; }
+    .br { bottom: 20px; right: 20px; border-width: 0 4px 4px 0; }
+
+
+
+    .faceLayer {
+      pointer-events: none;
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      transition: opacity .25s ease;
+      font-family: inherit;
+    }
+
+    .cameraBox.detecting .faceLayer,
+    .cameraBox.scanning .faceLayer { opacity: 1; }
+
+    .detectBox {
+      position: absolute;
+      border: 2px solid rgba(255, 221, 91, .95);
+      box-shadow: 0 0 0 1px rgba(0,0,0,.55), 0 0 18px rgba(255,221,91,.42);
+      color: #ffe58a;
+      font-size: 12px;
+      letter-spacing: .12em;
+    }
+
+    .detectBox::before {
+      content: attr(data-label);
+      position: absolute;
+      left: -2px;
+      top: -23px;
+      background: rgba(0,0,0,.78);
+      border: 1px solid rgba(255,221,91,.8);
+      padding: 2px 5px;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px black;
+    }
+
+    .faceMain { left: 30%; top: 13%; width: 40%; height: 58%; border-radius: 46% 46% 42% 42%; }
+    .eyeL { left: 39%; top: 34%; width: 8%; height: 5%; border-radius: 999px; }
+    .eyeR { left: 53%; top: 34%; width: 8%; height: 5%; border-radius: 999px; }
+    .nose { left: 48%; top: 42%; width: 5%; height: 12%; border-radius: 40%; }
+    .mouth { left: 44%; top: 58%; width: 13%; height: 5%; border-radius: 999px; }
+    .skinScan { left: 33%; top: 20%; width: 34%; height: 45%; border-style: dashed; opacity: .7; }
+
+    .adSlot {
+      margin-top: 14px;
+      border: 2px solid var(--line);
+      background: #071957;
+      color: #f6f1df;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .adSlot::before {
+      content: "五臟廟角落廣告位";
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 2;
+      background: rgba(0,0,0,.68);
+      border: 1px solid rgba(255,255,255,.45);
+      padding: 3px 7px;
+      font-size: 12px;
+      letter-spacing: .1em;
+    }
+
+    .adSlot img {
+      display: block;
+      width: 100%;
+      max-height: 190px;
+      object-fit: cover;
+      object-position: center;
+    }
+
+    .status {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 16px;
+      color: #f6f1df;
+      background: rgba(0,0,0,.72);
+      border: 1px solid rgba(246,241,223,.4);
+      padding: 12px;
+      min-height: 46px;
+      letter-spacing: .08em;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    button {
+      appearance: none;
+      border: 2px solid var(--line);
+      background: var(--ink);
+      color: var(--paper);
+      padding: 12px 14px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: 3px 3px 0 var(--gold);
+    }
+
+    button.secondary {
+      background: var(--paper);
+      color: var(--ink);
+    }
+
+    button:disabled {
+      opacity: .45;
+      cursor: not-allowed;
+    }
+
+    .receipt {
+      padding: 14px;
+      position: sticky;
+      top: 14px;
+      background-image:
+        repeating-linear-gradient(0deg, rgba(21,19,14,.035), rgba(21,19,14,.035) 1px, transparent 1px, transparent 8px);
+    }
+
+    .receiptHead {
+      text-align: center;
+      border-bottom: 2px dashed var(--line);
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+
+    .receiptHead h2 {
+      font-size: 26px;
+      letter-spacing: .12em;
+    }
+
+    .receiptHead small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      letter-spacing: .08em;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      border-bottom: 1px dotted var(--line);
+      padding: 7px 0;
+      font-size: 14px;
+    }
+
+    .row b { white-space: nowrap; }
+
+    .sectionTitle {
+      margin-top: 12px;
+      padding: 6px 8px;
+      border: 2px solid var(--line);
+      text-align: center;
+      font-weight: 900;
+      letter-spacing: .18em;
+    }
+
+    .organ {
+      border-bottom: 1px dashed var(--line);
+      padding: 10px 0;
+    }
+
+    .organ h3 {
+      display: flex;
+      justify-content: space-between;
+      font-size: 16px;
+      margin-bottom: 6px;
+    }
+
+    .organ p {
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .grade {
+      text-align: center;
+      margin: 14px 0 8px;
+      border: 4px double var(--red);
+      color: var(--red);
+      padding: 10px;
+      font-size: 28px;
+      font-weight: 900;
+      letter-spacing: .14em;
+    }
+
+    .barcode {
+      height: 54px;
+      margin-top: 12px;
+      background: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 5px, var(--ink) 5px 8px, transparent 8px 12px);
+      opacity: .9;
+    }
+
+    .fineprint {
+      margin-top: 10px;
+      text-align: center;
+      color: var(--muted);
+      font-size: 11px;
+      line-height: 1.5;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 900px) {
+      body { padding: 10px; }
+      .app { grid-template-columns: 1fr; }
+      .receipt { position: static; }
+      .cameraBox { min-height: 56vh; }
+    }
+
+    @media print {
+      body { background: white; padding: 0; }
+      .panel { display: none; }
+      .app { display: block; width: 80mm; margin: 0; }
+      .receipt { width: 80mm; border: none; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="panel">
+      <div class="masthead">
+        <div class="title">
+          <h1>五臟廟</h1>
+          <p>Temple Organ Assessment System / 香火鼎盛，器官平安</p>
+        </div>
+        <div class="seal">五臟<br>靈驗</div>
+      </div>
+
+      <div id="cameraBox" class="cameraBox">
+        <video id="video" autoplay playsinline muted></video>
+        <img id="photoPreview" class="photoPreview hidden" alt="拍攝結果" />
+        <canvas id="canvas"></canvas>
+        <div class="scanOverlay"></div>
+        <div class="faceLayer" aria-hidden="true">
+          <div class="detectBox faceMain" data-label="面相輪廓"></div>
+          <div class="detectBox eyeL" data-label="左眼：香火反射"></div>
+          <div class="detectBox eyeR" data-label="右眼：螢幕殘影"></div>
+          <div class="detectBox nose" data-label="鼻息流量"></div>
+          <div class="detectBox mouth" data-label="口德入口"></div>
+          <div class="detectBox skinScan" data-label="皮膚歲月層"></div>
+        </div>
+        <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+        <div id="status" class="status">請開啟鏡頭，將信徒面相置於神位中央。</div>
+      </div>
+
+      <div class="controls">
+        <button id="startBtn">開啟鏡頭</button>
+        <button id="captureBtn" disabled>拍照掃描</button>
+        <button id="againBtn" class="secondary" disabled>重新抽籤</button>
+        <button id="copyBtn" class="secondary">複製診斷文</button>
+        <button id="printBtn" class="secondary">列印小票</button>
+      </div>
+
+      <aside class="adSlot" aria-label="五臟廟角落廣告位">
+        <img src="ad.png" alt="角落廣告" />
+      </aside>
+    </section>
+
+    <aside id="receipt" class="receipt">
+      <div class="receiptHead">
+        <h2>五臟廟健康診斷</h2>
+        <small>TOAS-05 / 信徒身體巡禮小票</small>
+      </div>
+
+      <div class="row"><b>診斷編號</b><span id="serial">尚未降籤</span></div>
+      <div class="row"><b>診斷時間</b><span id="time">--</span></div>
+      <div class="row"><b>結果名稱</b><span id="persona">等待面相</span></div>
+      <div class="row"><b>視覺年齡</b><span id="visualAge">--</span></div>
+      <div class="row"><b>器官完整度</b><span id="integrity">--</span></div>
+      <div class="row"><b>香火旺盛度</b><span id="incense">--</span></div>
+      <div class="row"><b>功德餘額</b><span id="merit">--</span></div>
+
+      <div class="sectionTitle">臨床摘要</div>
+      <div id="organs"></div>
+
+      <div id="grade" class="grade">未開籤</div>
+      <div class="barcode"></div>
+      <p class="fineprint">本小票由五臟廟香火資料庫擲筊生成，僅作廟務參拜紀錄。</p>
+    </aside>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    const video = $("video");
+    const canvas = $("canvas");
+    const photoPreview = $("photoPreview");
+    const cameraBox = $("cameraBox");
+    const statusEl = $("status");
+
+    const startBtn = $("startBtn");
+    const captureBtn = $("captureBtn");
+    const againBtn = $("againBtn");
+    const copyBtn = $("copyBtn");
+    const printBtn = $("printBtn");
+
+    let stream = null;
+    let lastResult = null;
+
+    const personas = [
+      "熬夜修士", "過勞上班族", "憂鬱美少女", "青春餘額不足者", "螢幕供養者",
+      "即將成仙研究生", "睡眠逃逸犯", "電子功德捐獻者", "胃神眷顧者", "肝膽相照之人",
+      "眼神離線的人", "水腫小菩薩", "社交電量枯竭者", "清醒夢打工仔", "氣色尚可凡人",
+      "香火不足上班族", "焦慮型仙女", "功德透支少年", "臉色微妙大人", "笑容營業中人士",
+      "保健品觀望者", "肝指數吟遊詩人", "靈魂下班失敗者", "睡眠破產戶", "眼壓小富翁",
+      "壓力型漂亮寶貝", "胃口很有前途的人", "腦霧雲端用戶", "元氣試用版信徒", "週一倖存者",
+      "神明看了會嘆氣的人", "臨時抱佛腳美少女", "早餐失蹤人口", "手機亮度供奉者", "冷氣房乾燥靈"
+    ];
+
+    const grades = [
+      ["S 五臟俱全", 90], ["A 香火鼎盛", 76], ["B 勉強靈驗", 60],
+      ["C 神明搖頭", 44], ["D 急需添油香", 28], ["E 廟體待整修", 0]
+    ];
+
+    const organDB = {
+      "腦": [
+        ["記憶葉局部起霧", "常忘記打開冰箱的原始任務。", "供奉八小時睡眠與一段無通知時光。"],
+        ["注意力神龕位移", "容易在三個分頁之間輪迴。", "建議每日供上二十分鐘單一任務。"],
+        ["想像皮質過度發光", "靈感很多，執行像被香灰覆蓋。", "宜添行事曆，不宜只添願望。"],
+        ["決策神經打結", "小事考慮三天，大事全靠衝動。", "供奉十五分鐘沉默與一張待辦清單。"],
+        ["腦內廟會過盛", "明明很累，腦中仍有八個攤販叫賣。", "宜暫停通知，讓神明散場。"],
+        ["前額葉香灰堆積", "知道該睡，卻繼續巡視網路邊疆。", "建議上香給自制力，並關機。"]
+      ],
+      "心": [
+        ["情感瓣膜偏厚", "已讀不回後會自行建廟。", "供奉直接溝通，少量自尊。"],
+        ["心火與冷漠同時上升", "表面平靜，內部小鼓隊巡境。", "建議定期撤除腦內宮鬥劇。"],
+        ["共感神經輕度滲水", "容易把別人的一句話養成海。", "宜供奉邊界感與熱茶。"],
+        ["心神定位偏移", "人坐在這裡，情緒已經去隔壁縣市。", "供奉深呼吸與一次不解釋。"],
+        ["戀愛雜訊殘留", "無關訊息也會被讀成暗示。", "宜淨化聊天室，不宜考古限動。"],
+        ["自尊香爐冒煙", "被一點批評點燃整座內殿。", "建議添油不要添火。"]
+      ],
+      "肝": [
+        ["夜行性色素累積", "凌晨兩點突然想重啟人生。", "供奉提早睡覺，禁用報復性熬夜。"],
+        ["肝火香爐過熱", "小事也能燒成普渡。", "建議減少咖啡與網路戰場。"],
+        ["排毒儀式延遲", "精神像被昨天的自己扣押。", "宜供青菜、水、散步三寶。"],
+        ["酒精傳說殘影", "沒喝也像被星期五追殺。", "供奉白開水與早點回家。"],
+        ["肝膽義氣過量", "答應太多事，身體開始抗議。", "宜練習婉拒，勿再義薄雲天。"],
+        ["夜貓神明附體", "日出時才想起自己是哺乳類。", "建議把睡眠當成正神供奉。"]
+      ],
+      "皮膚": [
+        ["歲月附著率偏高", "照鏡子時開始研究保健食品。", "供奉保濕與防曬，不宜供奉焦慮。"],
+        ["社交粉塵殘留", "出門後需要三小時恢復人形。", "建議回家洗臉，也洗掉今日人設。"],
+        ["壓力角質增生", "嘴上沒事，臉先公告。", "宜早睡，忌一邊敷臉一邊滑短影音。"],
+        ["熬夜光澤反向生成", "越晚越亮，亮的是危機不是氣色。", "供奉防曬、保濕、退場時間。"],
+        ["表情肌值班過久", "笑容還在上班，靈魂已打卡。", "建議讓臉休假。"],
+        ["乾燥結界形成", "冷氣一吹，皮膚開始念經。", "宜補水，忌用意志力保濕。"]
+      ],
+      "胃": [
+        ["焦慮性反芻", "吃飽後仍想再吃一點命運。", "供奉規律進食，少量慢嚼。"],
+        ["甜食神明降駕頻繁", "壓力一來就想祭拜澱粉。", "建議先喝水，再決定是否獻祭雞排。"],
+        ["胃神值班過長", "深夜仍替人生加班消化。", "宜關燈，不宜加點。"],
+        ["早餐神位空缺", "早上不吃，中午直接召喚猛獸。", "供奉蛋白質與慢一點。"],
+        ["壓力澱粉化", "煩惱會自動轉生成麵包。", "建議先處理情緒，再處理宵夜。"],
+        ["消化廟務壅塞", "吃進去的是食物，卡住的是人生。", "宜散步，不宜飯後立刻躺平。"]
+      ],
+      "眼睛": [
+        ["螢幕反射殘留", "閉眼後仍看見通知的幽光。", "供奉遠眺二十秒與真正的黑暗。"],
+        ["眼神香火不足", "看起來醒著，其實靈魂剛登入。", "建議減少假清醒，增加真休息。"],
+        ["視線焦距逃逸", "常望向遠方，其實只是放空。", "宜讓眼睛離開螢幕，去看樹或雲。"],
+        ["眼壓香火偏旺", "看起來很專注，其實快被亮度煉化。", "供奉低亮度與二十公尺遠方。"],
+        ["黑眼圈護城河", "敵人還沒來，疲憊已經駐軍。", "建議停戰，讓眼周撤防。"],
+        ["視神經小廟漏電", "訊息太多，眼睛先罷工。", "宜關閉自動播放，少看一點天命。"]
+      ]
+    };
+
+    const scanSteps = [
+      "正在鎖定面相輪廓...",
+      "正在標註五官神位...",
+      "正在觀測信徒眼神香火...",
+      "正在分析臉部氣色流向...",
+      "正在校準五臟神位...",
+      "正在擲筊抽取臟器籤...",
+      "正在計算功德餘額...",
+      "正在連線南天門資料庫...",
+      "診斷完成，籤已落地。"
+    ];
+
+    function pick(arr) {
+      return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    function rand(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function serial() {
+      const n = Math.random().toString(36).slice(2, 8).toUpperCase();
+      return `WZM-${new Date().getFullYear()}-${n}`;
+    }
+
+    function getGrade(score) {
+      return grades.find(([, min]) => score >= min)[0];
+    }
+
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: false
+        });
+        video.srcObject = stream;
+        photoPreview.classList.add("hidden");
+        captureBtn.disabled = false;
+        cameraBox.classList.add("detecting");
+        statusEl.textContent = "鏡頭已開。偵測框已降臨，請把臉放進四角神位內。";
+      } catch (err) {
+        statusEl.textContent = "鏡頭無法開啟：請確認使用 HTTPS、localhost，並允許瀏覽器相機權限。";
+      }
+    }
+
+    function capturePhoto() {
+      if (!video.videoWidth) return;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      photoPreview.src = canvas.toDataURL("image/jpeg", .88);
+      photoPreview.classList.remove("hidden");
+    }
+
+    async function runScan() {
+      capturePhoto();
+      captureBtn.disabled = true;
+      againBtn.disabled = true;
+      cameraBox.classList.add("scanning");
+
+      for (const step of scanSteps) {
+        statusEl.textContent = step;
+        await new Promise(r => setTimeout(r, 720));
+      }
+
+      const result = generateResult();
+      renderResult(result);
+      cameraBox.classList.remove("scanning");
+      captureBtn.disabled = false;
+      againBtn.disabled = false;
+    }
+
+    function generateResult() {
+      const integrity = rand(26, 96);
+      const organs = Object.keys(organDB).map(name => {
+        const [state, symptom, offering] = pick(organDB[name]);
+        return { name, state, symptom, offering, score: rand(18, 99) };
+      });
+
+      return {
+        serial: serial(),
+        time: new Date().toLocaleString("zh-TW", { hour12: false }),
+        persona: pick(personas),
+        visualAge: `${rand(19, 68)}歲`,
+        integrity: `${integrity}%`,
+        incense: `${rand(8, 99)}%`,
+        merit: `${rand(0, 88)}%`,
+        grade: getGrade(integrity),
+        organs
+      };
+    }
+
+    function renderResult(result) {
+      lastResult = result;
+      $("serial").textContent = result.serial;
+      $("time").textContent = result.time;
+      $("persona").textContent = result.persona;
+      $("visualAge").textContent = result.visualAge;
+      $("integrity").textContent = result.integrity;
+      $("incense").textContent = result.incense;
+      $("merit").textContent = result.merit;
+      $("grade").textContent = result.grade;
+
+      $("organs").innerHTML = result.organs.map(o => `
+        <div class="organ">
+          <h3><span>${o.name}</span><span>${o.score}</span></h3>
+          <p><b>器官狀態：</b>${o.state}</p>
+          <p><b>異常現象：</b>${o.symptom}</p>
+          <p><b>建議供品：</b>${o.offering}</p>
+        </div>
+      `).join("");
+    }
+
+    function resultToText() {
+      const r = lastResult || generateResult();
+      return [
+        "五臟廟健康診斷",
+        `診斷編號：${r.serial}`,
+        `診斷時間：${r.time}`,
+        `結果名稱：${r.persona}`,
+        `視覺年齡：${r.visualAge}`,
+        `器官完整度：${r.integrity}`,
+        `香火旺盛度：${r.incense}`,
+        `功德餘額：${r.merit}`,
+        `總評：${r.grade}`,
+        "",
+        "臨床摘要：",
+        ...r.organs.flatMap(o => [
+          `${o.name}｜${o.score}`,
+          `器官狀態：${o.state}`,
+          `異常現象：${o.symptom}`,
+          `建議供品：${o.offering}`,
+          ""
+        ])
+      ].join("\n");
+    }
+
+    startBtn.addEventListener("click", startCamera);
+    captureBtn.addEventListener("click", runScan);
+    againBtn.addEventListener("click", () => renderResult(generateResult()));
+    printBtn.addEventListener("click", () => window.print());
+    copyBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(resultToText());
+        statusEl.textContent = "診斷文已複製。";
+      } catch {
+        statusEl.textContent = "無法自動複製，請手動選取小票內容。";
+      }
+    });
+
+    renderResult(generateResult());
+  </script>
+</body>
+</html>
