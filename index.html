@@ -299,6 +299,50 @@
       opacity: .9;
     }
 
+
+
+    .qrCorner {
+      display: grid;
+      place-items: center;
+      margin: 12px 0 4px;
+    }
+
+    .qrCornerInner {
+      display: inline-grid;
+      grid-template-columns: 86px 1fr;
+      gap: 10px;
+      align-items: center;
+      border: 2px solid var(--line);
+      background: rgba(255,255,255,.62);
+      padding: 8px;
+      width: 100%;
+    }
+
+    .qrCorner img {
+      width: 86px;
+      height: 86px;
+      image-rendering: pixelated;
+      background: white;
+      border: 1px solid var(--line);
+      padding: 4px;
+    }
+
+    .qrCaption {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--ink);
+      letter-spacing: .05em;
+      font-weight: 800;
+    }
+
+    .qrCaption small {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-weight: 700;
+      letter-spacing: .03em;
+    }
+
     .fineprint {
       margin-top: 10px;
       text-align: center;
@@ -378,6 +422,12 @@
 
       <div id="grade" class="grade">未開籤</div>
       <div class="barcode"></div>
+      <div class="qrCorner" aria-label="網站 QR Code">
+        <div class="qrCornerInner">
+          <img src="data:image/png;base64,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" alt="掃描進入五臟廟健康診斷系統" />
+          <div class="qrCaption">掃碼入廟<br>開始五臟廟健康診斷<small>Temple Organ Assessment System</small></div>
+        </div>
+      </div>
       <p class="fineprint">本小票由五臟廟香火資料庫擲筊生成。請勿與真實醫療院所、保險、政府文件混用。</p>
     </aside>
   </main>
